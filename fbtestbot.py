@@ -5,6 +5,7 @@ import os
 import json
 from Credentials import *
 import time
+import _thread
 
 app = Flask(__name__)
 
@@ -80,7 +81,7 @@ def test():
 
     while counter < 12:
         print(counter)
-        time.sleep(2)
+        time.sleep(5)
         counter += 1
 
         if counter == 11:
@@ -89,7 +90,14 @@ def test():
             
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port )
-    test()
+    try:
+        _thread.start_new_thread(app.run(host='0.0.0.0', port=port ), ())
+        _thread.start_new_thread(test(), ())
+    
+    except:
+        print ("Error: unable to start thread")
+
+    while 1:
+        pass
     
 print("82")
