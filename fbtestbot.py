@@ -89,10 +89,10 @@ def test():
 
             
 if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
     try:
-        _thread.start_new_thread(test(), ())
-        port = int(os.environ.get("PORT", 5000))
-        _thread.start_new_thread(app.run(host='0.0.0.0', port=port ), ())
+        _thread.start_new_thread(test, ())
+        _thread.start_new_thread(app.run, (host='0.0.0.0', port=port, ))
     
     except:
         print ("Error: unable to start thread")
