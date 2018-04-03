@@ -79,12 +79,12 @@ def log(message):  # simple wrapper for logging to stdout on heroku
 def test():
     counter = 1
 
-    while counter < 12:
+    while counter < 6:
         print(counter)
-        time.sleep(20)
+        time.sleep(15)
         counter += 1
 
-        if counter == 11:
+        if counter == 5:
             send_message('1671872586244465', 'hello')
             print("done")
             counter = 1
