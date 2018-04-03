@@ -81,10 +81,12 @@ def test():
 
     while counter < 12:
         print(counter)
-        time.sleep(5)
+        time.sleep(20)
         counter += 1
 
         if counter == 11:
+            send_message('1671872586244465', 'hello')
+            print("done")
             counter = 1
 
             
