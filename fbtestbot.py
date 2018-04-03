@@ -38,6 +38,11 @@ quick_replies_list = [
     },
     {
         "content_type": "text",
+        "title": "update",
+        "payload": "update",
+    },
+    {
+        "content_type": "text",
         "title": "help",
         "payload": "help",
     }
@@ -285,7 +290,7 @@ def handle_messages():
                     elif sliceWords(message_text, 0, -1).lower() in changePercentageValueTrigger:
                         if isFloat(newPercentageValue):
                             changePercentageValue(newPercentageValue)
-                            botReply = "The new percentage to get an alert is {}".format(percentageValue)
+                            botReply = "The new percentage trigger to get an alert is now {}%".format(percentageValue)
                             send_message(sender_id, botReply)
 
 
@@ -300,7 +305,7 @@ def handle_messages():
                     # help
                     elif message_text.lower() == 'help':
                         botReply = 'This bot will notify you when a coin pumps or drops below a certain percentage value.' \
-                                    '\nThe bot can only send messages in a period 24 hours later than when it recieved the last message from you.' \
+                                    '\nThe bot can only send messages in a period of 24 hours later than when it recieved the last message from you. So in order to recieve messages everyday do not forget to press the "update" button once in a while.' \
                                     '\n\n-You can add a coin to the watchlist by sending "add" and the ticker of that coin.' \
                                     '\n\n-You can delete a coin by typing "delete" and the ticker of that coin.' \
                                     '\n\n-You can show the coins the bot is watching by typing "show".' \
