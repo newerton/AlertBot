@@ -74,7 +74,22 @@ def log(message):  # simple wrapper for logging to stdout on heroku
     print(str(message))
     sys.stdout.flush()
 
+    
+def test():
+    counter = 1
 
+    while counter < 12:
+        print(counter)
+        time.sleep(2)
+        counter += 1
+
+        if counter == 11:
+            counter = 1
+
+            
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port )
+    test()
+    
+print("82")
