@@ -346,7 +346,7 @@ def handle_messages():
 
                         if coinTicker in coinTickerList:
                             addCoinData(coinTicker, sheet_coin)
-                            botReply = "Added {}. These are the coins you want an alert from:\n".format(coinTicker) + showAlertCoins(sheet_coin)
+                            botReply = "Added {}. These are the coins I am watching:\n".format(coinTicker) + showAlertCoins(sheet_coin)
                             send_message(sender_id, botReply)
 
                         else:
@@ -362,7 +362,7 @@ def handle_messages():
 
                         if coinTicker in coinTickerList:
                             deleteCoinData(coinTicker, sheet_coin)
-                            botReply = "deleted {}. These are the coins you want an alert from:\n".format(coinTicker) + showAlertCoins(sheet_coin)
+                            botReply = "deleted {}. These are the coins I am watching:\n".format(coinTicker) + showAlertCoins(sheet_coin)
                             send_message(sender_id, botReply)
 
                         else:
@@ -377,6 +377,10 @@ def handle_messages():
                             setPercentageValue(newPercentageValue)
                             botReply = "The new percentage trigger to get an alert is now {}%".format(getPercentageValue())
                             send_message(sender_id, botReply)
+                              
+                        else:
+                            botReply = 'This is not a valid value for the percentage. You do not have to write the "%" character.'
+                            send_message(sender_id, botReply)
 
 
 
@@ -390,7 +394,7 @@ def handle_messages():
                     # help
                     elif message_text.lower() == 'help':
                         botReply = 'This bot will notify you when a coin pumps or drops below a certain percentage value.' \
-                                    '\nThe bot can only send messages in a period of 24 hours later than when it recieved the last message from you. So in order to recieve messages everyday do not forget to press the "update" button once in a while.' \
+                                    '\nThe bot can only send messages in a period of 24 hours later than when it recieved the last message from you. So in order to recieve messages everyday do not forget to press the "update" button once in a while. This bot will be sleeping from 23:00 until 7:00 Brussels time.' \
                                     '\n\n-You can add a coin to the watchlist by sending "add" and the ticker of that coin.' \
                                     '\n\n-You can delete a coin by typing "delete" and the ticker of that coin.' \
                                     '\n\n-You can show the coins the bot is watching by typing "show".' \
@@ -415,6 +419,7 @@ def handle_messages():
                         print(getUserList())
                         
                         
+                           
                     # delete user
                     elif sliceWords(message_text, 0, -1).lower() == "delete user":
                         deleteUser(userID)
@@ -423,6 +428,7 @@ def handle_messages():
                         print(getUserList())
 
 
+                           
                     # default
                     else:
                         botReply = "Sorry, I do not understand this message."
