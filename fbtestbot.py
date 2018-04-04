@@ -279,7 +279,9 @@ def checkIfPumped(sheet):
 
             if abs(one_hour_change) > getPercentageValue() and timer > 60:
                 bot_reply = "{} changed {}%".format(coin_ticker, one_hour_change)
-                print(bot_reply)
+         
+                for user in getUserList():
+                    send_message(user, botReply)
                 resetTimer(coin_ticker, sheet)
 
         elif timer < 66:
@@ -398,7 +400,7 @@ def handle_messages():
                                     '\n\n-You can add a coin to the watchlist by sending "add" and the ticker of that coin.' \
                                     '\n\n-You can delete a coin by typing "delete" and the ticker of that coin.' \
                                     '\n\n-You can show the coins the bot is watching by typing "show".' \
-                                    '\n\n-You can change the value of the percentage by typing "change" or "change pecentage to" and the value you want it to have. For example "change percentage to 25".'
+                                    '\n\n-You can change the value of the percentage by typing "change" or "change percentage to" and the value you want it to have. For example "change percentage to 25".'
                         send_message(sender_id, botReply)
 
 
@@ -415,7 +417,7 @@ def handle_messages():
                     elif sliceWords(message_text, 0, -1).lower() == "add user":
                         addUser(userID)
                         botReply = "Added a new user."
-                        send_message(user, botReply)
+                        send_message(sender_id, botReply)
                         print(getUserList())
                         
                         
@@ -424,7 +426,7 @@ def handle_messages():
                     elif sliceWords(message_text, 0, -1).lower() == "delete user":
                         deleteUser(userID)
                         botReply = "Deleted a user."
-                        send_message(user, botReply)
+                        send_message(sender_id, botReply)
                         print(getUserList())
 
 
