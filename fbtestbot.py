@@ -8,6 +8,22 @@ import time
 import _thread
 import urllib.request
 app = Flask(__name__)
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+
+
+# -------------------------
+# Google Spreadsheets prep
+# -------------------------
+scope = ['https://spreadsheets.google.com/feeds',
+         'https://www.googleapis.com/auth/drive']
+creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+client = gspread.authorize(creds)
+
+sheet_coin = client.open('coins').sheet1
+sheet_FBIDs = client.open('FB IDs').sheet1
+sheet_percentage = client.open('percentage').sheet1
 
 
 
@@ -16,9 +32,6 @@ app = Flask(__name__)
 # ----
 refreshRateMinutes = 2
 refreshRateSeconds = 60 * refreshRateMinutes
-percentageValue = 15
-userList = ["1815874935130054"]
-alertDictList = [{'ticker': "NEO", 'timer': 64}, {'ticker': 'HUSH', 'timer': 64}]
 
 addTrigger = ["add"]
 deleteTrigger = ["del", "delete"]
@@ -71,6 +84,12 @@ def isFloat(value):
         return True
     except ValueError:
         return False
+
+
+
+def nbRows(sheet):
+    nb_rows = len(sheet.get_all_records()) + 1
+    return nb_rows
 
 
 
@@ -130,6 +149,72 @@ def getOneHourChange(ticker):
 
 
 
+def getUserList():
+    global sheet_FBIDs
+    sheet_FBIDs_data = sheet_FBIDs.get_all_records()
+    fb_id_list = []
+    for element in sheet_FBIDs_data:
+        fb_id_list += [element['user']]
+    return fb_id_list
+
+
+
+def addUser(user_id):
+    fb_id_list = getUserList()
+    if user_id not in fb_id_list:
+        new_row = [str(user_id)]
+        sheet_FBIDs.append_row(new_row)
+
+        
+
+def deleteUser(user_id):
+    global sheet_FBIDs
+    sheet_FBIDs_data = sheet_FBIDs.get_all_records()
+
+    for program_index in range(len(sheet_FBIDs_data)):
+        sheet_index = program_index + 2
+
+        if sheet_FBIDs_data[program_index]['user'] == user_id:
+            sheet_FBIDs.delete_row(sheet_index)
+            break
+
+            
+            
+def getTimerWithTicker(ticker, sheet):
+    sheet_data = sheet.get_all_records()
+
+    for program_index in range(len(sheet_data)):
+        sheet_index = program_index + 2
+        if sheet_data[program_index]['ticker'] == ticker:
+            timer = sheet_data[program_index]['timer']
+            return float(timer)
+
+
+
+def setTimerWithTicker(ticker, new_timer, sheet):
+    sheet_data = sheet.get_all_records()
+
+    for program_index in range(len(sheet_data)):
+        sheet_index = program_index + 2
+        if sheet_data[program_index]['ticker'] == ticker:
+            sheet.update_cell(sheet_index, 2, new_timer)
+
+
+
+def getPercentageValue():
+    global sheet_percentage
+    sheet_percentage_data = sheet_percentage.get_all_records()
+    percentage = sheet_percentage_data[0]['percentage']
+    return float(percentage)
+
+
+
+def setPercentageValue(new_percentage):
+    global sheet_percentage
+    sheet_percentage.update_cell(2, 1, new_percentage)        
+        
+       
+    
 def getCoinTickersFromDict(dict_list):
     coin_ticker_list = []
     for element in dict_list:
@@ -138,78 +223,76 @@ def getCoinTickersFromDict(dict_list):
 
 
 
-def addCoin(coin_ticker, dict_list):
-    new_dict = {}
-    coin_ticker_list = getCoinTickersFromDict(dict_list)
-    if coin_ticker not in coin_ticker_list:
-        new_dict['ticker'] = coin_ticker
-        new_dict['timer'] = 64
-        dict_list += [new_dict]
+def addCoinData(ticker, sheet):
+    sheet_data = sheet.get_all_records()
+    coin_ticker_list = getCoinTickersFromDict(sheet_data)
+    if ticker not in coin_ticker_list:
+        new_row = [ticker, 64]
+        sheet.append_row(new_row)
 
 
 
-def deleteCoin(coin_ticker, dict_list):
-    for index in range(len(dict_list)):
-        if dict_list[index]['ticker'] == coin_ticker:
-            dict_list.pop(index)
+def deleteCoinData(ticker, sheet):
+    sheet_data = sheet.get_all_records()
+
+    for program_index in range(len(sheet_data)):
+        sheet_index = program_index + 2
+
+        if sheet_data[program_index]['ticker'] == ticker:
+            sheet.delete_row(sheet_index)
             break
 
 
 
-def showAlertCoins(dict_list):
-    bot_reply = ""
-    coin_ticker_list = getCoinTickersFromDict(dict_list)
+def showAlertCoins(sheet):
+    bot_reply = "The coins I'm currently watching are:\n"
+    sheet_data = sheet.get_all_records()
+    coin_ticker_list = getCoinTickersFromDict(sheet_data)
     for coin in coin_ticker_list:
         bot_reply += "{}\n".format(coin)
-    bot_reply += "percentage: {}%".format(percentageValue)
+    bot_reply += "percentage: {}%".format(getPercentageValue())
     return bot_reply
 
 
 
-def changePercentageValue(percentage_value):
-    global percentageValue
-    if isFloat(percentage_value):
-        if float(percentage_value) > 0:
-            percentageValue = float(percentage_value)
+def resetTimer(ticker, sheet):
+    setTimerWithTicker(ticker, 0, sheet)
 
 
 
-def resetTimer(dict):
-    dict['timer'] = 0
+def timerProgressor(ticker, sheet):
+    current_timer = getTimerWithTicker(ticker, sheet)
+    new_timer = current_timer + refreshRateMinutes
+    setTimerWithTicker(ticker, new_timer, sheet)
 
 
 
-def timerProgressor(dict):
-    dict['timer'] += refreshRateMinutes
+def checkIfPumped(sheet):
+    sheet_data = sheet.get_all_records()
 
-
-
-def checkIfPumped(dict_list):
-    global userList
-    for dict in dict_list:
+    for dict in sheet_data:
         coin_ticker = dict['ticker']
         timer = dict['timer']
         one_hour_change = getOneHourChange(coin_ticker)
 
         if timer > 62:
 
-            if abs(one_hour_change) > percentageValue and timer > 60:
+            if abs(one_hour_change) > getPercentageValue() and timer > 60:
                 bot_reply = "{} changed {}%".format(coin_ticker, one_hour_change)
-                for user in userList:
-                    send_message(user, bot_reply)
-                resetTimer(dict)
+                print(bot_reply)
+                resetTimer(coin_ticker, sheet)
 
         elif timer < 66:
-            timerProgressor(dict)
+            timerProgressor(coin_ticker, sheet)
 
 
 def threadOne():
     while True:
         print('Checked the percentages.')
-        print(alertDictList)
-        print(percentageValue)
+        print(sheet_coin.get_all_records())
+        print(getPercentageValue())
         refreshCMCData()
-        checkIfPumped(alertDictList)
+        checkIfPumped(sheet_coin)
         time.sleep(refreshRateSeconds)
 
 
@@ -245,13 +328,13 @@ def handle_messages():
                     
                     coinTicker = sliceWords(message_text, -1, None).upper()
                     newPercentageValue = sliceWords(message_text, -1, None)
-                    newUser = sliceWords(message_text, -1, None)
+                    userID = sliceWords(message_text, -1, None)
 
 
 
                     # show alert coins
                     if message_text.lower() in showTrigger:
-                        botReply = showAlertCoins(alertDictList)
+                        botReply = showAlertCoins(sheet_coin)
                         send_message(sender_id, botReply)
 
 
@@ -262,12 +345,13 @@ def handle_messages():
                         coinTickerList = getCoinTickerList(CMCdata)
 
                         if coinTicker in coinTickerList:
-                            addCoin(coinTicker, alertDictList)
-                            botReply = "Added {}. These are the coins you want an alert from:\n".format(coinTicker) + showAlertCoins(alertDictList)
+                            addCoinData(coinTicker, sheet_coin)
+                            botReply = "Added {}. These are the coins you want an alert from:\n".format(coinTicker) + showAlertCoins(sheet_coin)
                             send_message(sender_id, botReply)
 
                         else:
                             botReply = "That coin is not included"
+                            send_message(sender_id, botReply)
 
 
 
@@ -277,20 +361,21 @@ def handle_messages():
                         coinTickerList = getCoinTickerList(CMCdata)
 
                         if coinTicker in coinTickerList:
-                            deleteCoin(coinTicker, alertDictList)
-                            botReply = "deleted {}. These are the coins you want an alert from:\n".format(coinTicker) + showAlertCoins(alertDictList)
+                            deleteCoinData(coinTicker, sheet_coin)
+                            botReply = "deleted {}. These are the coins you want an alert from:\n".format(coinTicker) + showAlertCoins(sheet_coin)
                             send_message(sender_id, botReply)
 
                         else:
                             botReply = "That coin is not included"
+                            send_message(sender_id, botReply)
 
 
 
                     # change percentage
                     elif sliceWords(message_text, 0, -1).lower() in changePercentageValueTrigger:
                         if isFloat(newPercentageValue):
-                            changePercentageValue(newPercentageValue)
-                            botReply = "The new percentage trigger to get an alert is now {}%".format(percentageValue)
+                            setPercentageValue(newPercentageValue)
+                            botReply = "The new percentage trigger to get an alert is now {}%".format(getPercentageValue())
                             send_message(sender_id, botReply)
 
 
@@ -316,7 +401,7 @@ def handle_messages():
 
                     # test message
                     elif message_text.lower() == "test message":
-                        for user in userList:
+                        for user in getUserList():
                             botReply = "test"
                             send_message(user, botReply)
 
@@ -324,13 +409,18 @@ def handle_messages():
 
                     # add user
                     elif sliceWords(message_text, 0, -1).lower() == "add user":
-                        if newUser not in userList:
-                            userList += [newUser]
-                            botReply = "Added a new user"
-                            send_message(sender_id, botReply)
-                        print(userList)
+                        addUser(userID)
+                        botReply = "Added a new user."
+                        send_message(user, botReply)
+                        print(getUserList())
                         
-
+                        
+                    # delete user
+                    elif sliceWords(message_text, 0, -1).lower() == "delete user":
+                        deleteUser(userID)
+                        botReply = "Deleted a user."
+                        send_message(user, botReply)
+                        print(getUserList())
 
 
                     # default
