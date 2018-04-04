@@ -281,7 +281,7 @@ def checkIfPumped(sheet):
                 bot_reply = "{} changed {}%".format(coin_ticker, one_hour_change)
          
                 for user in getUserList():
-                    send_message(user, botReply)
+                    send_message(user, bot_reply)
                 resetTimer(coin_ticker, sheet)
 
         elif timer < 66:
