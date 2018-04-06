@@ -481,12 +481,13 @@ def log(message):  # simple wrapper for logging to stdout on heroku
             
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    try:
-        _thread.start_new_thread(threadOne, ())
-        _thread.start_new_thread(app.run(host='0.0.0.0', port=port), ())
-    
-    except:
-        print ("Error: unable to start thread")
+    error=True
 
-    while 1:
-        pass
+    while error:
+         try:
+             _thread.start_new_thread(threadOne, ())
+             _thread.start_new_thread(app.run(host='0.0.0.0', port=port), ())
+             error=False
+         except:
+             error=True
+             print ("Error: unable to start thread")
