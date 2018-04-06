@@ -485,9 +485,13 @@ if __name__ == '__main__':
 
     while error:
          try:
+             print("starting threads")
              _thread.start_new_thread(threadOne, ())
              _thread.start_new_thread(app.run(host='0.0.0.0', port=port), ())
              error=False
          except:
+             print("Restarting function in 20 seconds due to error.")
+             time.sleep(20)
+             print("Restarting function...")
              error=True
              print ("Error: unable to start thread")
