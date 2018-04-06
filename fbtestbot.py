@@ -297,6 +297,25 @@ def threadOne():
         checkIfPumped(sheet_coin)
         time.sleep(refreshRateSeconds)
 
+         
+def refreshCredentials():
+    refreshTime = 60 * 10.5
+
+    global scope, creds, client
+    global sheet_coin, sheet_FBIDs, sheet_percentage
+
+    while True:
+        print("Refreshing credentials ...")
+        scope = ['https://spreadsheets.google.com/feeds',
+                 'https://www.googleapis.com/auth/drive']
+        creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+        client = gspread.authorize(creds)
+
+        sheet_coin = client.open('coins').sheet1
+        sheet_FBIDs = client.open('FB IDs').sheet1
+        sheet_percentage = client.open('percentage').sheet1
+        print("Refreshed credentials.")
+        time.sleep(refreshTime)
 
 
 @app.route('/', methods=['GET'])
@@ -487,6 +506,7 @@ if __name__ == '__main__':
          try:
              print("starting threads")
              _thread.start_new_thread(threadOne, ())
+             _thread.start_new_thread(refreshCredentials, ())
              _thread.start_new_thread(app.run(host='0.0.0.0', port=port), ())
              error=False
          except:
@@ -494,4 +514,3 @@ if __name__ == '__main__':
              time.sleep(20)
              print("Restarting function...")
              error=True
-             print ("Error: unable to start thread")
