@@ -41,7 +41,7 @@ changePercentageValueTrigger = ["change", "change percentage", "change percentag
 CMC_URL = "https://api.coinmarketcap.com/v1/ticker/?limit=1000"
 with urllib.request.urlopen(CMC_URL) as cmc_url:
     s = cmc_url.read()
-CMCdata = json.loads(s)
+CMCData = json.loads(s)
 
 quick_replies_list = [
     {
@@ -122,7 +122,7 @@ def getCoinNameList(dataList):
 
 
 
-coinTickerList = getCoinTickerList(CMCdata)
+coinTickerList = getCoinTickerList(CMCData)
 
 
 
@@ -145,7 +145,7 @@ def getCoinInfoElement(ticker, aspect, data):
 
 
 def getOneHourChange(ticker):
-    return float(getCoinInfoElement(ticker, 'percent_change_1h', CMCdata))
+    return float(getCoinInfoElement(ticker, 'percent_change_1h', CMCData))
 
 
 
@@ -363,7 +363,7 @@ def handle_messages():
                     # add coin
                     elif sliceWords(message_text, 0, -1).lower() in addTrigger:
                         refreshCMCData()
-                        coinTickerList = getCoinTickerList(CMCdata)
+                        coinTickerList = getCoinTickerList(CMCData)
 
                         if coinTicker in coinTickerList:
                             addCoinData(coinTicker, sheet_coin)
@@ -379,7 +379,7 @@ def handle_messages():
                     # delete coin
                     elif sliceWords(message_text, 0, -1).lower() in deleteTrigger:
                         refreshCMCData()
-                        coinTickerList = getCoinTickerList(CMCdata)
+                        coinTickerList = getCoinTickerList(CMCData)
 
                         if coinTicker in coinTickerList:
                             deleteCoinData(coinTicker, sheet_coin)
