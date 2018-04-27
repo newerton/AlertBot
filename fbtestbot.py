@@ -149,6 +149,16 @@ def getOneHourChange(ticker):
 
 
 
+def getUsdPrice(ticker):
+    return float(getCoinInfoElement(ticker, 'price_usd', CMCData))
+
+
+
+def getBtcPrice(ticker):
+    return float(getCoinInfoElement(ticker, 'price_btc', CMCData))
+
+
+
 def getUserList():
     global sheet_FBIDs
     sheet_FBIDs_data = sheet_FBIDs.get_all_records()
@@ -278,7 +288,9 @@ def checkIfPumped(sheet):
         if timer > 62:
 
             if abs(one_hour_change) > getPercentageValue() and timer > 60:
-                bot_reply = "{} changed {}%".format(coin_ticker, one_hour_change)
+                usd_price = getUsdPrice(coin_ticker)
+                btc_price = getBtcPrice(coin_ticker)
+                bot_reply = "{} changed {}% in the last hour. The price of {} is now ${} or {} BTC.".format(coin_ticker, one_hour_change, coin_ticker, usd_price, btc_price)
          
                 for user in getUserList():
                     send_message(user, bot_reply)
