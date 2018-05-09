@@ -303,7 +303,6 @@ def get_nb_rows(sheet):
 
 
 def get_nb_cols(sheet):
-    print(sheet.get_all_records())
     nb_cols = len(sheet.get_all_records()[1])
     return nb_cols
 
@@ -313,7 +312,6 @@ def simulation():
     column = get_nb_cols(sheet_simulation) + 1
     player_list = playerPortfolioValues.player_portfolios
     value_list = createPlayerPortfolioValueList(player_list)
-    print(value_list)
 
     write_details(column, value_list, player_list)
     write_portfolio_values(value_list, column)
@@ -777,8 +775,10 @@ def handle_messages():
                            
                     #simulation test
                     elif message_text.lower() == 'simulation test 4832':
-                        botReply = "starting a simulation test"
+                        botReply = "Starting a simulation test."
+                        send_message(sender_id, botReply)
                         simulation()
+                        botReply = "Ended simulation."
                         send_message(sender_id, botReply)
                            
                            
