@@ -39,7 +39,8 @@ sheet_simulation_trigger = client.open('simulation_trigger').sheet1
 def visible_sleeper(seconds):
     for timer in range(seconds):
         time.sleep(1)
-        print(timer + 1)
+        if timer % 10 == 0:
+            print("timer is at {}".format(timer))
 
 
 def refreshCredentialsForSimulation():
@@ -56,8 +57,7 @@ def refreshCredentialsForSimulation():
     sheet_simulation_trigger = client.open('simulation_trigger').sheet1
 
     print("Refreshed credentials.")
-    time.sleep(refreshTime)
-
+    visible_sleeper(seconds)
 
 def refreshCredentialsForSimulationTrigger():
     global scope, creds, client
@@ -777,7 +777,7 @@ def handle_messages():
                     elif message_text.lower() == 'simulation test 4832':
                         botReply = "Starting a simulation test."
                         send_message(sender_id, botReply)
-                        simulation()
+#                         simulation()
                         botReply = "Ended simulation."
                         send_message(sender_id, botReply)
                            
