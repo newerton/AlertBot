@@ -55,9 +55,9 @@ def refreshCredentialsForSimulation():
     creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
     client = gspread.authorize(creds)
     sheet_simulation_trigger = client.open('simulation_trigger').sheet1
-
+    
+    visible_sleeper(refreshTime)
     print("Refreshed credentials.")
-    visible_sleeper(seconds)
 
 def refreshCredentialsForSimulationTrigger():
     global scope, creds, client
