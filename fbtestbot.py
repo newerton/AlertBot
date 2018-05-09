@@ -5,12 +5,14 @@ import os
 import json
 from Credentials import *
 import time
+import datetime
 import _thread
 import urllib.request
 app = Flask(__name__)
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-
+import random
+import playerPortfolioValues
 
 
 # -------------------------
@@ -24,8 +26,319 @@ client = gspread.authorize(creds)
 sheet_coin = client.open('coins').sheet1
 sheet_FBIDs = client.open('FB IDs').sheet1
 sheet_percentage = client.open('percentage').sheet1
+sheet_simulation = client.open('crypto simulation').sheet1
+sheet_simulation_trigger = client.open('simulation_trigger').sheet1
 
 
+# --------------------------------------------------------------------------------------------------------------------------
+#                                                               simulation
+# --------------------------------------------------------------------------------------------------------------------------
+# -------------------
+# refresh credentials
+# --------------------
+def visible_sleeper(seconds):
+    for timer in range(seconds):
+        time.sleep(1)
+        print(timer + 1)
+
+
+def refreshCredentialsForSimulation():
+    refreshTime = 100
+
+    global scope, creds, client
+    global sheet_simulation
+
+    print("Refreshing credentials ...")
+    scope = ['https://spreadsheets.google.com/feeds',
+                 'https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+    client = gspread.authorize(creds)
+    sheet_simulation_trigger = client.open('simulation_trigger').sheet1
+
+    print("Refreshed credentials.")
+    time.sleep(refreshTime)
+
+
+def refreshCredentialsForSimulationTrigger():
+    global scope, creds, client
+    global sheet_simulation_trigger
+
+    print("Refreshing credentials for trigger...")
+    scope = ['https://spreadsheets.google.com/feeds',
+                 'https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+    client = gspread.authorize(creds)
+    sheet_simulation_trigger = client.open('simulation_trigger').sheet1
+    print("Refreshed credentials for trigger.")
+
+
+# ------------
+# trigger defs
+# ------------
+def set_trigger_value(value):
+    refreshCredentialsForSimulationTrigger()
+    sheet_simulation_trigger.update_cell(1, 1, value)
+
+
+def get_trigger_value():
+    refreshCredentialsForSimulationTrigger()
+    value = int(sheet_simulation_trigger.col_values(1)[0])
+    return value
+
+
+# ------------------
+# set up spreadsheet
+# ------------------
+def write_player_number():
+    number_of_players = 1000
+
+    for player_number in range(number_of_players):
+        if player_number % 95 == 0:
+            refreshCredentialsForSimulation()
+        sheet_simulation.update_cell(player_number + 2, 1, "player {}".format(player_number + 1))
+
+
+# -------------------
+# create cryptofolios
+# -------------------
+def getCoinPrice(ticker):
+    coin_info = next(coin for coin in CMCData if coin[u'symbol'] == ticker)
+
+    return (coin_info[u'price_usd'])
+
+
+def getCoinList(dataList):
+    coinList = []
+
+    for coinDetails in dataList:
+        coinName = coinDetails[u'symbol']
+        coinList += [coinName]
+
+    return coinList
+
+
+def choosePortfolio(coinList):
+    beginPortfolioValue = 1000
+    remainingValue = beginPortfolioValue
+    counter = 0
+    portfolioList = []
+
+    while remainingValue > 0:
+        coin = coinList[random.randint(0, 99)]
+        amountOfUSD = random.randint(0, 300)
+
+        if counter == 4:
+            amountOfUSD = remainingValue
+
+        elif remainingValue - amountOfUSD < 0:
+            amountOfUSD = remainingValue
+
+        amountOfCoins = round(amountOfUSD / float(getCoinPrice(coin)), 4)
+        remainingValue -= amountOfUSD
+        counter += 1
+        portfolioList += [[coin, amountOfCoins]]
+
+    return portfolioList
+
+
+def createPlayerList(coinList):
+    listOfPlayers = []
+
+    for player in range(1000):
+        playerDictionary = {}
+        playerDictionary['portfolio'] = choosePortfolio(coinList)
+        listOfPlayers += [playerDictionary]
+
+    return listOfPlayers
+
+
+# --------------------------------
+# get value of created portfolios
+# --------------------------------
+def getPlayerPortfolioValue(portfolio):
+    portfolioValue = 0
+
+    try:
+        for portfolioElement in portfolio:
+            ticker = portfolioElement[0]
+            coinValue = float(getCoinPrice(ticker))
+            amountOfCoins = portfolioElement[1]
+            elementValue = amountOfCoins * coinValue
+            portfolioValue += elementValue
+        return round(portfolioValue, 2)
+
+    except:
+        return "ERROR"
+
+
+def createPlayerPortfolioValueList(playerList):
+    playerPortfolioValueList = []
+
+    for player in playerList:
+        playerPortfolio = player['portfolio']
+        playerPortfolioValue = getPlayerPortfolioValue(playerPortfolio)
+        playerPortfolioValueList += [playerPortfolioValue]
+
+    return playerPortfolioValueList
+
+
+# ------------------------
+# get average, max and min
+# ------------------------
+def get_maximum_value(portfolio_value_list):
+    list_without_errors = []
+    for value in portfolio_value_list:
+        if value != "ERROR":
+            list_without_errors += [value]
+
+    maximum = max(list_without_errors)
+
+    for index in range(len(portfolio_value_list)):
+        if portfolio_value_list[index] == maximum:
+            maxIndex = index
+            break
+
+    return [maximum, maxIndex]
+
+
+def get_minimum_value(portfolio_value_list):
+    list_without_errors = []
+    for value in portfolio_value_list:
+        if value != "ERROR":
+            list_without_errors += [value]
+
+    minimum = min(list_without_errors)
+
+    for index in range(len(portfolio_value_list)):
+        if portfolio_value_list[index] == minimum:
+            minIndex = index
+            break
+
+    return [minimum, minIndex]
+
+
+def get_average_value(portfolio_value_list):
+
+    list_without_errors = []
+    for value in portfolio_value_list:
+        if value != "ERROR":
+            list_without_errors += [value]
+
+    sum_of_values = 0
+    for new_values in list_without_errors:
+        sum_of_values += new_values
+
+    average = sum_of_values / len(list_without_errors)
+
+    return round(average, 2)
+
+
+# ----
+# date
+# ----
+def get_date_string():
+    now = datetime.datetime.now()
+    date = "{}/{}/{}".format(now.day, now.month, now.year)
+    return date
+
+
+def write_date(column):
+    sheet_simulation.update_cell(1, column, get_date_string())
+
+
+def get_utc_day_name():
+    now = datetime.datetime.utcnow()
+    day_name = now.strftime('%A')
+    return day_name
+
+
+# ---------------------------
+# write values in spreadsheet
+# ---------------------------
+def write_portfolios(portfolio_list, column):
+    counter = 1
+
+    for portfolio in portfolio_list:
+        if counter % 90 == 0:
+            refreshCredentialsForSimulation()
+
+        sheet_simulation.update_cell(counter + 1, column, "{}".format(portfolio['portfolio']))
+        counter += 1
+
+
+def write_portfolio_values(portfolio_value_list, column):
+    counter = 1
+
+    for value in portfolio_value_list:
+        if counter % 90 == 0:
+            print("currently at portfolio {}".format(counter + 1))
+            refreshCredentialsForSimulation()
+
+        sheet_simulation.update_cell(counter + 1, column, "{}".format(value))
+        counter += 1
+
+
+def write_details(column, value_list, player_list):
+    write_date(column)
+
+    average = get_average_value(value_list)
+    sheet_simulation.update_cell(1005, column, average)
+
+    max = get_maximum_value(value_list)[0]
+    max_portfolio_index = get_maximum_value(value_list)[1]
+    max_portfolio = str(player_list[max_portfolio_index]['portfolio'])
+    sheet_simulation.update_cell(1007, column, max)
+    sheet_simulation.update_cell(1008, column, max_portfolio)
+
+    min = get_minimum_value(value_list)[0]
+    min_portfolio_index = get_minimum_value(value_list)[1]
+    min_portfolio = str(player_list[min_portfolio_index]['portfolio'])
+    sheet_simulation.update_cell(1010, column, min)
+    sheet_simulation.update_cell(1011, column, min_portfolio)
+
+
+def get_nb_rows(sheet):
+    nb_rows = len(sheet.get_all_records()) + 1
+    return nb_rows
+
+
+def get_nb_cols(sheet):
+    print(sheet.get_all_records())
+    nb_cols = len(sheet.get_all_records()[1])
+    return nb_cols
+
+
+def simulation():
+    refreshCredentialsForSimulation()
+    column = get_nb_cols(sheet_simulation) + 1
+    player_list = playerPortfolioValues.player_portfolios
+    value_list = createPlayerPortfolioValueList(player_list)
+    print(value_list)
+
+    write_details(column, value_list, player_list)
+    write_portfolio_values(value_list, column)
+
+
+def main_simulation_thread():
+    while True:
+        trigger_value = get_trigger_value()
+        day_name = get_utc_day_name()
+
+        if trigger_value == 1 and day_name == 'Wednesday':
+            print('starting simulation.')
+            simulation()
+            set_trigger_value(0)
+
+        elif day_name == 'Thursday' and trigger_value == 0:
+            set_trigger_value(1)
+
+        else:
+            print("No simulation triggered. Simulation thread is going to sleep ...")
+            time.sleep(60 * 60 * 2)
+
+# ----------------------------------------------------------------------------------------------------------------------------
+#                                                     simulation end
+# ----------------------------------------------------------------------------------------------------------------------------
 
 # ----
 # vars
@@ -460,7 +773,15 @@ def handle_messages():
                         send_message(sender_id, botReply)
                         print(getUserList())
 
-
+                           
+                           
+                    #simulation test
+                    elif message_text.lower() == 'simulation test 4832':
+                        botReply = "starting a simulation test"
+                        simulation()
+                        send_message(sender_id, botReply)
+                           
+                           
                            
                     # default
                     else:
@@ -518,6 +839,7 @@ if __name__ == '__main__':
          try:
              print("starting threads")
              _thread.start_new_thread(threadOne, ())
+             _thread.start_new_thread(main_simulation_thread, ())
              _thread.start_new_thread(refreshCredentials, ())
              _thread.start_new_thread(app.run(host='0.0.0.0', port=port), ())
              error=False
