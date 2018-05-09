@@ -29,10 +29,10 @@ sheet_percentage = client.open('percentage').sheet1
 sheet_simulation = client.open('crypto simulation').sheet1
 sheet_simulation_trigger = client.open('simulation_trigger').sheet1
 
-
 # --------------------------------------------------------------------------------------------------------------------------
 #                                                               simulation
 # --------------------------------------------------------------------------------------------------------------------------
+
 # -------------------
 # refresh credentials
 # --------------------
@@ -49,7 +49,7 @@ def refreshCredentialsForSimulation():
     global scope, creds, client
     global sheet_simulation
 
-    print("Refreshing credentials ...")
+    print("Refreshing credentials for simulation...")
     scope = ['https://spreadsheets.google.com/feeds',
                  'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
@@ -57,7 +57,7 @@ def refreshCredentialsForSimulation():
     sheet_simulation_trigger = client.open('simulation_trigger').sheet1
     
     visible_sleeper(refreshTime)
-    print("Refreshed credentials.")
+    print("Refreshed credentials for simulation.")
 
 def refreshCredentialsForSimulationTrigger():
     global scope, creds, client
