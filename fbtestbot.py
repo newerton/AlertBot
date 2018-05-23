@@ -349,7 +349,7 @@ deleteTrigger = ["del", "delete"]
 showTrigger = ["show", "show list"]
 changePercentageValueTrigger = ["change", "change percentage", "change percentage to"]
 
-CMC_URL = "https://api.coinmarketcap.com/v1/ticker/?limit=1000"
+CMC_URL = "https://api.coinmarketcap.com/v1/ticker/?limit=1400"
 with urllib.request.urlopen(CMC_URL) as cmc_url:
     s = cmc_url.read()
 CMCData = json.loads(s)
