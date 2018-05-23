@@ -369,7 +369,7 @@ def simulation():
     refreshCredentialsForSimulation()
     column = get_nb_cols(sheet_simulation) + 1
     player_list = playerPortfolioValues.player_portfolios
-    value_list = createPlayerPortfolioValueList(player_list
+    value_list = createPlayerPortfolioValueList(player_list)
 
     write_total_market_cap(column)                                            
     write_details(column, value_list, player_list)
