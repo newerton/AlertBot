@@ -33,6 +33,22 @@ sheet_simulation_trigger = client.open('simulation_trigger').sheet1
 #                                                               simulation
 # --------------------------------------------------------------------------------------------------------------------------
 
+# --------------------
+# get global data
+# --------------------
+CMC_global_URL = "https://api.coinmarketcap.com/v2/global/"
+with urllib.request.urlopen(CMC_global_URL) as cmc_global_url:
+    read_global = cmc_global_url.read()
+CMC_global_data = json.loads(read_global)
+
+
+def refresh_global_data():
+    with urllib.request.urlopen(CMC_global_URL) as cmc_global_url:
+        global read_global, CMC_global_data
+        read_global = cmc_global_url.read()
+    CMC_global_data = json.loads(read_global)
+
+
 # -------------------
 # refresh credentials
 # --------------------
@@ -182,6 +198,48 @@ def createPlayerPortfolioValueList(playerList):
     return playerPortfolioValueList
 
 
+# ----------------------------------
+# get total market cap and write it
+# ----------------------------------
+def get_total_market_cap():
+    refresh_global_data()
+    total_market_cap = CMC_global_data["data"]["quotes"]["USD"]["total_market_cap"]
+    return str(total_market_cap)
+
+
+def isFloat(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+
+def makeLargeNumberReadable(originalstring):
+    if isFloat(originalstring):
+        intstring = str(int(float(originalstring) + 0.5))
+        intstringlist = list(intstring)
+        firstcommaindex = len(intstring) % 3
+        amountofcommas = (len(intstring) // 3)
+
+        if firstcommaindex == 0:
+            amountofcommas -= 1
+
+        for commaindex in range(amountofcommas):
+            intstringlist.insert((-3 * (commaindex + 1)) - commaindex, ',')
+
+        newstring = ''.join(intstringlist)
+        return newstring
+
+    else:
+        return "Error converting large number to readable number."
+
+
+def write_total_market_cap(col):
+    total_market_cap = makeLargeNumberReadable(get_total_market_cap())
+    sheet_simulation.update_cell(1013, col, total_market_cap)
+         
+
 # ------------------------
 # get average, max and min
 # ------------------------
@@ -311,8 +369,9 @@ def simulation():
     refreshCredentialsForSimulation()
     column = get_nb_cols(sheet_simulation) + 1
     player_list = playerPortfolioValues.player_portfolios
-    value_list = createPlayerPortfolioValueList(player_list)
+    value_list = createPlayerPortfolioValueList(player_list
 
+    write_total_market_cap(column)                                            
     write_details(column, value_list, player_list)
     write_portfolio_values(value_list, column)
 
