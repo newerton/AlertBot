@@ -393,8 +393,90 @@ def main_simulation_thread():
             print("No simulation triggered. Simulation thread is going to sleep ...")
             time.sleep(60 * 60 * 2)
 
+         
 # ----------------------------------------------------------------------------------------------------------------------------
-#                                                     simulation end
+#                                                     NEX allocation start
+# ----------------------------------------------------------------------------------------------------------------------------
+
+# -------------
+# get cmc data
+# -------------
+def get_cmc_data():
+    try:
+        url = "https://api.coinmarketcap.com/v1/ticker/?limit=1400"
+        url_open = urllib.request.urlopen(url)
+        url_read = url_open.read()
+        data = json.loads(url_read)
+        return data
+
+    except:
+        print("An error occurred")
+        return None
+
+
+def get_price(ticker, data):
+    for coin_data in data:
+        if coin_data["symbol"] == ticker:
+            return coin_data["price_usd"]
+    return False
+
+
+# --------------------------
+# set up Google spreadsheets
+# --------------------------
+scope = ['https://spreadsheets.google.com/feeds',
+         'https://www.googleapis.com/auth/drive']
+credentials = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+client = gspread.authorize(credentials)
+work_sheet = client.open("NEX allocation").sheet1
+
+
+def replace_comma_with_dot(string):
+    return "".join([letter if letter != "," else "." for letter in string])
+
+
+def convert_string_to_float(string):
+    print("to convert ", string)
+    string = replace_comma_with_dot(str(string))
+    return float(string)
+
+
+def nex_main():
+    print("start")
+    data = get_cmc_data()
+    dictionary_list = work_sheet.get_all_records()
+
+    if dictionary_list[-1]["coin name"] == "Total":
+        work_sheet.delete_row(len(dictionary_list) + 1)
+        dictionary_list = work_sheet.get_all_records()
+
+    gspread_nb_rows = len(dictionary_list) + 1
+    total_funds = 0
+
+    for index in range(len(dictionary_list)):
+        print(index)
+        gspread_row = index + 2
+        dictionary = dictionary_list[index]
+        ticker = dictionary["coin name"]
+        price_per_coin = convert_string_to_float(get_price(ticker, data))
+        amount_of_coins = convert_string_to_float(dictionary["amount"])
+        coin_funds = round(price_per_coin * amount_of_coins, 2)
+
+        work_sheet.update_cell(gspread_row, 3, price_per_coin)
+        work_sheet.update_cell(gspread_row, 4, coin_funds)
+
+        total_funds += coin_funds
+
+    print("escaped out of loop")
+    work_sheet.update_cell(gspread_nb_rows + 1, 1, "Total")
+    work_sheet.update_cell(gspread_nb_rows + 1, 4, round(total_funds, 2))
+    bot_reply = "total funds are: ${}".format(round(total_funds, 2))
+    print("done")
+    return bot_reply
+
+
+# ----------------------------------------------------------------------------------------------------------------------------
+#                                                     Alert Bot
 # ----------------------------------------------------------------------------------------------------------------------------
 
 # ----
@@ -430,7 +512,6 @@ quick_replies_list = [
         "payload": "help",
     }
 ]
-
 
 
 # ----------
@@ -820,9 +901,16 @@ def handle_messages():
                         botReply = "Added a new user."
                         send_message(sender_id, botReply)
                         print(getUserList())
-                        
+                           
+                           
+                           
+                    # nex                      
+                    elif message_text.lower() == "nex":
+                        botReply = nex_main()
+                        send_message(sender_id, botReply
                         
                            
+                                     
                     # delete user
                     elif sliceWords(message_text, 0, -1).lower() == "delete user":
                         deleteUser(userID)
