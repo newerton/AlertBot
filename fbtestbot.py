@@ -907,7 +907,7 @@ def handle_messages():
                     # nex                      
                     elif message_text.lower() == "nex":
                         botReply = nex_main()
-                        send_message(sender_id, botReply
+                        send_message(sender_id, botReply)
                         
                            
                                      
