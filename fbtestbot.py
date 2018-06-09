@@ -441,8 +441,22 @@ def convert_string_to_float(string):
     return float(string)
 
 
+def refresh_credentials_for_NEX_():
+    global scope, credentials, client
+    global work_sheet
+
+    print("Refreshing credentials for NEX...")
+    scope = ['https://spreadsheets.google.com/feeds',
+                 'https://www.googleapis.com/auth/drive']
+    credentials = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+    client = gspread.authorize(credentials)
+    work_sheet = client.open('NEX allocation').sheet1
+    print("Refreshed credentials for NEX.")
+
+
 def nex_main():
-    print("start")
+    print("start NEX")
+    refresh_credentials_for_NEX_()
     data = get_cmc_data()
     dictionary_list = work_sheet.get_all_records()
 
@@ -471,7 +485,7 @@ def nex_main():
     work_sheet.update_cell(gspread_nb_rows + 1, 1, "Total")
     work_sheet.update_cell(gspread_nb_rows + 1, 4, round(total_funds, 2))
     bot_reply = "total funds are: ${}".format(round(total_funds, 2))
-    print("done")
+    print("NEX done")
     return bot_reply
 
 
