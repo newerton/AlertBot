@@ -120,7 +120,7 @@ def write_player_number():
 # -------------
 def get_cmc_data():
     try:
-        url = "https://api.coinmarketcap.com/v1/ticker/?limit=1400"
+        url = "https://api.coinmarketcap.com/v1/ticker/?limit=1600"
         url_open = urllib.request.urlopen(url)
         url_read = url_open.read()
         data = json.loads(url_read)
