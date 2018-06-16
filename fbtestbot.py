@@ -958,7 +958,7 @@ def handle_messages():
                     elif message_text.lower() == 'simulation test 4832':
                         botReply = "Starting a simulation test."
                         send_message(sender_id, botReply)
-                        simulation()
+#                         simulation()
                         botReply = "Ended simulation."
                         send_message(sender_id, botReply)
                            
