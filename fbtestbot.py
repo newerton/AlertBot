@@ -114,13 +114,28 @@ def write_player_number():
         sheet_simulation.update_cell(player_number + 2, 1, "player {}".format(player_number + 1))
 
 
-# -------------------
-# create cryptofolios
-# -------------------
-def getCoinPrice(ticker):
-    coin_info = next(coin for coin in CMCData if coin[u'symbol'] == ticker)
 
-    return (coin_info[u'price_usd'])
+# -------------
+# get cmc data
+# -------------
+def get_cmc_data():
+    try:
+        url = "https://api.coinmarketcap.com/v1/ticker/?limit=1400"
+        url_open = urllib.request.urlopen(url)
+        url_read = url_open.read()
+        data = json.loads(url_read)
+        return data
+
+    except:
+        print("An error occurred")
+        return None
+
+
+def get_price(ticker, data):
+    for coin_data in data:
+        if coin_data["symbol"] == ticker:
+            return coin_data["price_usd"]
+    return False
 
 
 def getCoinList(dataList):
@@ -133,7 +148,10 @@ def getCoinList(dataList):
     return coinList
 
 
-def choosePortfolio(coinList):
+# -------------------
+# create cryptofolios
+# -------------------
+def choosePortfolio(coinList, data):
     beginPortfolioValue = 1000
     remainingValue = beginPortfolioValue
     counter = 0
@@ -149,7 +167,7 @@ def choosePortfolio(coinList):
         elif remainingValue - amountOfUSD < 0:
             amountOfUSD = remainingValue
 
-        amountOfCoins = round(amountOfUSD / float(getCoinPrice(coin)), 4)
+        amountOfCoins = round(amountOfUSD / float(get_price(coin, data)), 4)
         remainingValue -= amountOfUSD
         counter += 1
         portfolioList += [[coin, amountOfCoins]]
@@ -159,10 +177,11 @@ def choosePortfolio(coinList):
 
 def createPlayerList(coinList):
     listOfPlayers = []
+    data = get_cmc_data()
 
     for player in range(1000):
         playerDictionary = {}
-        playerDictionary['portfolio'] = choosePortfolio(coinList)
+        playerDictionary['portfolio'] = choosePortfolio(coinList, data)
         listOfPlayers += [playerDictionary]
 
     return listOfPlayers
@@ -171,13 +190,13 @@ def createPlayerList(coinList):
 # --------------------------------
 # get value of created portfolios
 # --------------------------------
-def getPlayerPortfolioValue(portfolio):
+def getPlayerPortfolioValue(portfolio, data):
     portfolioValue = 0
 
     try:
         for portfolioElement in portfolio:
             ticker = portfolioElement[0]
-            coinValue = float(getCoinPrice(ticker))
+            coinValue = float(get_price(ticker, data))
             amountOfCoins = portfolioElement[1]
             elementValue = amountOfCoins * coinValue
             portfolioValue += elementValue
@@ -187,12 +206,12 @@ def getPlayerPortfolioValue(portfolio):
         return "ERROR"
 
 
-def createPlayerPortfolioValueList(playerList):
+def createPlayerPortfolioValueList(playerList, data):
     playerPortfolioValueList = []
 
     for player in playerList:
         playerPortfolio = player['portfolio']
-        playerPortfolioValue = getPlayerPortfolioValue(playerPortfolio)
+        playerPortfolioValue = getPlayerPortfolioValue(playerPortfolio, data)
         playerPortfolioValueList += [playerPortfolioValue]
 
     return playerPortfolioValueList
@@ -369,7 +388,8 @@ def simulation():
     refreshCredentialsForSimulation()
     column = get_nb_cols(sheet_simulation) + 1
     player_list = playerPortfolioValues.player_portfolios
-    value_list = createPlayerPortfolioValueList(player_list)
+    data = get_cmc_data()
+    value_list = createPlayerPortfolioValueList(player_list, data)
 
     write_total_market_cap(column)                                            
     write_details(column, value_list, player_list)
@@ -938,7 +958,7 @@ def handle_messages():
                     elif message_text.lower() == 'simulation test 4832':
                         botReply = "Starting a simulation test."
                         send_message(sender_id, botReply)
-#                         simulation()
+                        simulation()
                         botReply = "Ended simulation."
                         send_message(sender_id, botReply)
                            
