@@ -5,12 +5,14 @@ import os
 import json
 from Credentials import *
 import time
+import datetime
 import _thread
 import urllib.request
 app = Flask(__name__)
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-
+import random
+import playerPortfolioValues
 
 
 # -------------------------
@@ -24,8 +26,492 @@ client = gspread.authorize(creds)
 sheet_coin = client.open('coins').sheet1
 sheet_FBIDs = client.open('FB IDs').sheet1
 sheet_percentage = client.open('percentage').sheet1
+sheet_simulation = client.open('crypto simulation').sheet1
+sheet_simulation_trigger = client.open('simulation_trigger').sheet1
+
+# --------------------------------------------------------------------------------------------------------------------------
+#                                                               simulation
+# --------------------------------------------------------------------------------------------------------------------------
+
+# --------------------
+# get global data
+# --------------------
+CMC_global_URL = "https://api.coinmarketcap.com/v2/global/"
+with urllib.request.urlopen(CMC_global_URL) as cmc_global_url:
+    read_global = cmc_global_url.read()
+CMC_global_data = json.loads(read_global)
 
 
+def refresh_global_data():
+    with urllib.request.urlopen(CMC_global_URL) as cmc_global_url:
+        global read_global, CMC_global_data
+        read_global = cmc_global_url.read()
+    CMC_global_data = json.loads(read_global)
+
+
+# -------------------
+# refresh credentials
+# --------------------
+def visible_sleeper(seconds):
+    for timer in range(seconds):
+        time.sleep(1)
+        if timer % 10 == 0:
+            print("timer is at {}".format(timer))
+
+
+def refreshCredentialsForSimulation():
+    refreshTime = 100
+
+    global scope, creds, client
+    global sheet_simulation
+
+    print("Refreshing credentials for simulation...")
+    scope = ['https://spreadsheets.google.com/feeds',
+                 'https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+    client = gspread.authorize(creds)
+    sheet_simulation_trigger = client.open('simulation_trigger').sheet1
+    
+    visible_sleeper(refreshTime)
+    print("Refreshed credentials for simulation.")
+
+def refreshCredentialsForSimulationTrigger():
+    global scope, creds, client
+    global sheet_simulation_trigger
+
+    print("Refreshing credentials for trigger...")
+    scope = ['https://spreadsheets.google.com/feeds',
+                 'https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+    client = gspread.authorize(creds)
+    sheet_simulation_trigger = client.open('simulation_trigger').sheet1
+    print("Refreshed credentials for trigger.")
+
+
+# ------------
+# trigger defs
+# ------------
+def set_trigger_value(value):
+    refreshCredentialsForSimulationTrigger()
+    sheet_simulation_trigger.update_cell(1, 1, value)
+
+
+def get_trigger_value():
+    refreshCredentialsForSimulationTrigger()
+    value = int(sheet_simulation_trigger.col_values(1)[0])
+    return value
+
+
+# ------------------
+# set up spreadsheet
+# ------------------
+def write_player_number():
+    number_of_players = 1000
+
+    for player_number in range(number_of_players):
+        if player_number % 95 == 0:
+            refreshCredentialsForSimulation()
+        sheet_simulation.update_cell(player_number + 2, 1, "player {}".format(player_number + 1))
+
+
+
+# -------------
+# get cmc data
+# -------------
+def get_cmc_data():
+    try:
+        url = "https://api.coinmarketcap.com/v1/ticker/?limit=1600"
+        url_open = urllib.request.urlopen(url)
+        url_read = url_open.read()
+        data = json.loads(url_read)
+        return data
+
+    except:
+        print("An error occurred")
+        return None
+
+
+def get_price(ticker, data):
+    for coin_data in data:
+        if coin_data["symbol"] == ticker:
+            return coin_data["price_usd"]
+    return False
+
+
+def getCoinList(dataList):
+    coinList = []
+
+    for coinDetails in dataList:
+        coinName = coinDetails[u'symbol']
+        coinList += [coinName]
+
+    return coinList
+
+
+# -------------------
+# create cryptofolios
+# -------------------
+def choosePortfolio(coinList, data):
+    beginPortfolioValue = 1000
+    remainingValue = beginPortfolioValue
+    counter = 0
+    portfolioList = []
+
+    while remainingValue > 0:
+        coin = coinList[random.randint(0, 99)]
+        amountOfUSD = random.randint(0, 300)
+
+        if counter == 4:
+            amountOfUSD = remainingValue
+
+        elif remainingValue - amountOfUSD < 0:
+            amountOfUSD = remainingValue
+
+        amountOfCoins = round(amountOfUSD / float(get_price(coin, data)), 4)
+        remainingValue -= amountOfUSD
+        counter += 1
+        portfolioList += [[coin, amountOfCoins]]
+
+    return portfolioList
+
+
+def createPlayerList(coinList):
+    listOfPlayers = []
+    data = get_cmc_data()
+
+    for player in range(1000):
+        playerDictionary = {}
+        playerDictionary['portfolio'] = choosePortfolio(coinList, data)
+        listOfPlayers += [playerDictionary]
+
+    return listOfPlayers
+
+
+# --------------------------------
+# get value of created portfolios
+# --------------------------------
+def getPlayerPortfolioValue(portfolio, data):
+    portfolioValue = 0
+
+    try:
+        for portfolioElement in portfolio:
+            ticker = portfolioElement[0]
+            coinValue = float(get_price(ticker, data))
+            amountOfCoins = portfolioElement[1]
+            elementValue = amountOfCoins * coinValue
+            portfolioValue += elementValue
+        return round(portfolioValue, 2)
+
+    except:
+        return "ERROR"
+
+
+def createPlayerPortfolioValueList(playerList, data):
+    playerPortfolioValueList = []
+
+    for player in playerList:
+        playerPortfolio = player['portfolio']
+        playerPortfolioValue = getPlayerPortfolioValue(playerPortfolio, data)
+        playerPortfolioValueList += [playerPortfolioValue]
+
+    return playerPortfolioValueList
+
+
+# ----------------------------------
+# get total market cap and write it
+# ----------------------------------
+def get_total_market_cap():
+    refresh_global_data()
+    total_market_cap = CMC_global_data["data"]["quotes"]["USD"]["total_market_cap"]
+    return str(total_market_cap)
+
+
+def isFloat(value):
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+
+def makeLargeNumberReadable(originalstring):
+    if isFloat(originalstring):
+        intstring = str(int(float(originalstring) + 0.5))
+        intstringlist = list(intstring)
+        firstcommaindex = len(intstring) % 3
+        amountofcommas = (len(intstring) // 3)
+
+        if firstcommaindex == 0:
+            amountofcommas -= 1
+
+        for commaindex in range(amountofcommas):
+            intstringlist.insert((-3 * (commaindex + 1)) - commaindex, ',')
+
+        newstring = ''.join(intstringlist)
+        return newstring
+
+    else:
+        return "Error converting large number to readable number."
+
+
+def write_total_market_cap(col):
+    total_market_cap = makeLargeNumberReadable(get_total_market_cap())
+    sheet_simulation.update_cell(1013, col, total_market_cap)
+         
+
+# ------------------------
+# get average, max and min
+# ------------------------
+def get_maximum_value(portfolio_value_list):
+    list_without_errors = []
+    for value in portfolio_value_list:
+        if value != "ERROR":
+            list_without_errors += [value]
+
+    maximum = max(list_without_errors)
+
+    for index in range(len(portfolio_value_list)):
+        if portfolio_value_list[index] == maximum:
+            maxIndex = index
+            break
+
+    return [maximum, maxIndex]
+
+
+def get_minimum_value(portfolio_value_list):
+    list_without_errors = []
+    for value in portfolio_value_list:
+        if value != "ERROR":
+            list_without_errors += [value]
+
+    minimum = min(list_without_errors)
+
+    for index in range(len(portfolio_value_list)):
+        if portfolio_value_list[index] == minimum:
+            minIndex = index
+            break
+
+    return [minimum, minIndex]
+
+
+def get_average_value(portfolio_value_list):
+
+    list_without_errors = []
+    for value in portfolio_value_list:
+        if value != "ERROR":
+            list_without_errors += [value]
+
+    sum_of_values = 0
+    for new_values in list_without_errors:
+        sum_of_values += new_values
+
+    average = sum_of_values / len(list_without_errors)
+
+    return round(average, 2)
+
+
+# ----
+# date
+# ----
+def get_date_string():
+    now = datetime.datetime.now()
+    date = "{}/{}/{}".format(now.day, now.month, now.year)
+    return date
+
+
+def write_date(column):
+    sheet_simulation.update_cell(1, column, get_date_string())
+
+
+def get_utc_day_name():
+    now = datetime.datetime.utcnow()
+    day_name = now.strftime('%A')
+    return day_name
+
+
+# ---------------------------
+# write values in spreadsheet
+# ---------------------------
+def write_portfolios(portfolio_list, column):
+    counter = 1
+
+    for portfolio in portfolio_list:
+        if counter % 90 == 0:
+            refreshCredentialsForSimulation()
+
+        sheet_simulation.update_cell(counter + 1, column, "{}".format(portfolio['portfolio']))
+        counter += 1
+
+
+def write_portfolio_values(portfolio_value_list, column):
+    counter = 1
+
+    for value in portfolio_value_list:
+        if counter % 90 == 0:
+            print("currently at portfolio {}".format(counter + 1))
+            refreshCredentialsForSimulation()
+
+        sheet_simulation.update_cell(counter + 1, column, "{}".format(value))
+        counter += 1
+
+
+def write_details(column, value_list, player_list):
+    write_date(column)
+
+    average = get_average_value(value_list)
+    sheet_simulation.update_cell(1005, column, average)
+
+    max = get_maximum_value(value_list)[0]
+    max_portfolio_index = get_maximum_value(value_list)[1]
+    max_portfolio = str(player_list[max_portfolio_index]['portfolio'])
+    sheet_simulation.update_cell(1007, column, max)
+    sheet_simulation.update_cell(1008, column, max_portfolio)
+
+    min = get_minimum_value(value_list)[0]
+    min_portfolio_index = get_minimum_value(value_list)[1]
+    min_portfolio = str(player_list[min_portfolio_index]['portfolio'])
+    sheet_simulation.update_cell(1010, column, min)
+    sheet_simulation.update_cell(1011, column, min_portfolio)
+
+
+def get_nb_rows(sheet):
+    nb_rows = len(sheet.get_all_records()) + 1
+    return nb_rows
+
+
+def get_nb_cols(sheet):
+    nb_cols = len(sheet.get_all_records()[1])
+    return nb_cols
+
+
+def simulation():
+    refreshCredentialsForSimulation()
+    column = get_nb_cols(sheet_simulation) + 1
+    player_list = playerPortfolioValues.player_portfolios
+    data = get_cmc_data()
+    value_list = createPlayerPortfolioValueList(player_list, data)
+
+    write_total_market_cap(column)                                            
+    write_details(column, value_list, player_list)
+    write_portfolio_values(value_list, column)
+
+
+def main_simulation_thread():
+    while True:
+        trigger_value = get_trigger_value()
+        day_name = get_utc_day_name()
+
+        if trigger_value == 1 and day_name == 'Wednesday':
+            print('starting simulation.')
+            simulation()
+            set_trigger_value(0)
+
+        elif day_name == 'Thursday' and trigger_value == 0:
+            set_trigger_value(1)
+
+        else:
+            print("No simulation triggered. Simulation thread is going to sleep ...")
+            time.sleep(60 * 60 * 2)
+
+         
+# ----------------------------------------------------------------------------------------------------------------------------
+#                                                     NEX allocation start
+# ----------------------------------------------------------------------------------------------------------------------------
+
+# -------------
+# get cmc data
+# -------------
+def get_cmc_data():
+    try:
+        url = "https://api.coinmarketcap.com/v1/ticker/?limit=1400"
+        url_open = urllib.request.urlopen(url)
+        url_read = url_open.read()
+        data = json.loads(url_read)
+        return data
+
+    except:
+        print("An error occurred")
+        return None
+
+
+def get_price(ticker, data):
+    for coin_data in data:
+        if coin_data["symbol"] == ticker:
+            return coin_data["price_usd"]
+    return False
+
+
+# --------------------------
+# set up Google spreadsheets
+# --------------------------
+scope = ['https://spreadsheets.google.com/feeds',
+         'https://www.googleapis.com/auth/drive']
+credentials = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+client = gspread.authorize(credentials)
+work_sheet = client.open("NEX allocation").sheet1
+
+
+def replace_comma_with_dot(string):
+    return "".join([letter if letter != "," else "." for letter in string])
+
+
+def convert_string_to_float(string):
+    print("to convert ", string)
+    string = replace_comma_with_dot(str(string))
+    return float(string)
+
+
+def refresh_credentials_for_NEX_():
+    global scope, credentials, client
+    global work_sheet
+
+    print("Refreshing credentials for NEX...")
+    scope = ['https://spreadsheets.google.com/feeds',
+                 'https://www.googleapis.com/auth/drive']
+    credentials = ServiceAccountCredentials.from_json_keyfile_name('client_secret.json', scope)
+    client = gspread.authorize(credentials)
+    work_sheet = client.open('NEX allocation').sheet1
+    print("Refreshed credentials for NEX.")
+
+
+def nex_main():
+    print("start NEX")
+    refresh_credentials_for_NEX_()
+    data = get_cmc_data()
+    dictionary_list = work_sheet.get_all_records()
+
+    if dictionary_list[-1]["coin name"] == "Total":
+        work_sheet.delete_row(len(dictionary_list) + 1)
+        dictionary_list = work_sheet.get_all_records()
+
+    gspread_nb_rows = len(dictionary_list) + 1
+    total_funds = 0
+
+    for index in range(len(dictionary_list)):
+        print(index)
+        gspread_row = index + 2
+        dictionary = dictionary_list[index]
+        ticker = dictionary["coin name"]
+        price_per_coin = convert_string_to_float(get_price(ticker, data))
+        amount_of_coins = convert_string_to_float(dictionary["amount"])
+        coin_funds = round(price_per_coin * amount_of_coins, 2)
+
+        work_sheet.update_cell(gspread_row, 3, price_per_coin)
+        work_sheet.update_cell(gspread_row, 4, coin_funds)
+
+        total_funds += coin_funds
+
+    print("escaped out of loop")
+    work_sheet.update_cell(gspread_nb_rows + 1, 1, "Total")
+    work_sheet.update_cell(gspread_nb_rows + 1, 4, round(total_funds, 2))
+    bot_reply = "total funds are: ${}".format(round(total_funds, 2))
+    print("NEX done")
+    return bot_reply
+
+
+# ----------------------------------------------------------------------------------------------------------------------------
+#                                                     Alert Bot
+# ----------------------------------------------------------------------------------------------------------------------------
 
 # ----
 # vars
@@ -38,7 +524,7 @@ deleteTrigger = ["del", "delete"]
 showTrigger = ["show", "show list"]
 changePercentageValueTrigger = ["change", "change percentage", "change percentage to"]
 
-CMC_URL = "https://api.coinmarketcap.com/v1/ticker/?limit=1000"
+CMC_URL = "https://api.coinmarketcap.com/v1/ticker/?limit=1400"
 with urllib.request.urlopen(CMC_URL) as cmc_url:
     s = cmc_url.read()
 CMCData = json.loads(s)
@@ -60,7 +546,6 @@ quick_replies_list = [
         "payload": "help",
     }
 ]
-
 
 
 # ----------
@@ -146,6 +631,16 @@ def getCoinInfoElement(ticker, aspect, data):
 
 def getOneHourChange(ticker):
     return float(getCoinInfoElement(ticker, 'percent_change_1h', CMCData))
+
+
+
+def getUsdPrice(ticker):
+    return float(getCoinInfoElement(ticker, 'price_usd', CMCData))
+
+
+
+def getBtcPrice(ticker):
+    return float(getCoinInfoElement(ticker, 'price_btc', CMCData))
 
 
 
@@ -278,7 +773,9 @@ def checkIfPumped(sheet):
         if timer > 62:
 
             if abs(one_hour_change) > getPercentageValue() and timer > 60:
-                bot_reply = "{} changed {}%".format(coin_ticker, one_hour_change)
+                usd_price = getUsdPrice(coin_ticker)
+                btc_price = getBtcPrice(coin_ticker)
+                bot_reply = "{} changed {}% in the last hour. The price of {} is now ${} or {} BTC.".format(coin_ticker, one_hour_change, coin_ticker, usd_price, btc_price)
          
                 for user in getUserList():
                     send_message(user, bot_reply)
@@ -438,9 +935,16 @@ def handle_messages():
                         botReply = "Added a new user."
                         send_message(sender_id, botReply)
                         print(getUserList())
-                        
+                           
+                           
+                           
+                    # nex                      
+                    elif message_text.lower() == "nex":
+                        botReply = nex_main()
+                        send_message(sender_id, botReply)
                         
                            
+                                     
                     # delete user
                     elif sliceWords(message_text, 0, -1).lower() == "delete user":
                         deleteUser(userID)
@@ -448,7 +952,17 @@ def handle_messages():
                         send_message(sender_id, botReply)
                         print(getUserList())
 
-
+                           
+                           
+                    #simulation test
+                    elif message_text.lower() == 'simulation test 4832':
+                        botReply = "Starting a simulation test."
+                        send_message(sender_id, botReply)
+#                         simulation()
+                        botReply = "Ended simulation."
+                        send_message(sender_id, botReply)
+                           
+                           
                            
                     # default
                     else:
@@ -506,6 +1020,7 @@ if __name__ == '__main__':
          try:
              print("starting threads")
              _thread.start_new_thread(threadOne, ())
+             _thread.start_new_thread(main_simulation_thread, ())
              _thread.start_new_thread(refreshCredentials, ())
              _thread.start_new_thread(app.run(host='0.0.0.0', port=port), ())
              error=False
