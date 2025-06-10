@@ -4,7 +4,7 @@ gunicorn==23.0.0
 itsdangerous==0.24
 Jinja2==3.1.6
 MarkupSafe==0.23
-requests==2.32.0
+requests==2.32.4
 Werkzeug==3.0.6
 gspread==2.0.1
 oauth2client==4.1.2
